@@ -143,14 +143,41 @@ app.get("/get-user", authenticateToken, async (req, res) => {
       email: isUser.email,
       _id: isUser._id,
       createdOn: isUser.createdOn,
+      bio: isUser.bio || "",
     },
     message: "",
   });
 });
 
+// Update user details
+app.put("/update-user", authenticateToken, async (req, res) => {
+  const { user } = req.user;
+  const { fullName, bio } = req.body;
+
+  try {
+    const updatedUser = await User.findByIdAndUpdate(
+      user._id,
+      { fullName, bio },
+      { new: true }
+    );
+
+    return res.json({
+      error: false,
+      message: "User updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      error: true,
+      message: "Failed to update user",
+    });
+  }
+});
+
 //Add Note
 app.post("/add-note", authenticateToken, async (req, res) => {
-  const { title, content, tags } = req.body;
+  const { title, content, tags, color } = req.body;
   const { user } = req.user;
 
   if (!title) {
@@ -168,6 +195,7 @@ app.post("/add-note", authenticateToken, async (req, res) => {
       title,
       content,
       tags: tags || [],
+      color: color || "#ffffff",
       userId: user._id,
     });
 
@@ -189,7 +217,7 @@ app.post("/add-note", authenticateToken, async (req, res) => {
 //Edit Note
 app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
   const noteId = req.params.noteId;
-  const { title, content, tags, isPinned } = req.body;
+  const { title, content, tags, isPinned, color } = req.body;
   const { user } = req.user;
 
   if (!title && !content && !tags) {
@@ -209,6 +237,8 @@ app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
     if (content) note.content = content;
     if (tags) note.tags = tags;
     if (isPinned) note.isPinned = isPinned;
+    if (color) note.color = color; // ✅ add this line
+
 
     await note.save();
 
@@ -300,6 +330,41 @@ app.put("/update-note-pinned/:noteId", authenticateToken, async (req, res) => {
     });
   }
 });
+
+// Search Notes
+app.get("/search-notes/", authenticateToken, async (req, res) => {
+  const { user } = req.user;
+  const { query } = req.query;
+
+  if (!query) {
+    return res
+      .status(400)
+      .json({ error: true, message: "Search query is required " });
+  }
+
+  try {
+    const matchingNotes = await Note.find({
+      userId: user._id,
+      $or: [
+        { title: { $regex: new RegExp(query, "i") } },
+        { content: { $regex: new RegExp(query, "i") } },
+        { tags: { $elemMatch: { $regex: new RegExp(query, "i") } } },
+      ],
+    });
+
+    return res.json({
+      error: false,
+      notes: matchingNotes,
+      message: "Notes matching the search query retrieved successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: true,
+      message: "Internal Server Error",
+    });
+  }
+});
+
 
 app.listen(8000);
 

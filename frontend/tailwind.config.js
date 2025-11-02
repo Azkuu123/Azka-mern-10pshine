@@ -1,9 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: "class", // 🌙 enable dark mode toggle
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
-      // Colors used in the project
       colors: {
         primary: "#2B85FF",
         secondary: "#EF863E",
@@ -12,4 +12,5 @@ export default {
   },
   plugins: [],
 };
+
 

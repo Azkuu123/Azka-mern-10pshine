@@ -1,11 +1,29 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
-  </head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>frontend</title>
+
+  <!-- 🌓 Instant theme apply before page renders -->
+  <script>
+    (function () {
+      const theme = localStorage.getItem("theme") || "light";
+      const html = document.documentElement;
+      if (theme === "dark") {
+        html.classList.add("dark");
+        document.body.style.backgroundColor = "#0f172a";
+        document.body.style.color = "#f8fafc";
+      } else {
+        html.classList.remove("dark");
+        document.body.style.backgroundColor = "#ffffff";
+        document.body.style.color = "#0f172a";
+      }
+    })();
+  </script>
+</head>
+
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

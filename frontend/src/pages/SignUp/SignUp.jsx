@@ -1,88 +1,116 @@
-import React, { useState } from "react"
+import React, { useState } from "react";
 import Navbar from "../../components/Navbar/Navbar";
 import PasswordInput from "../../components/Input/PasswordInput";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { validateEmail } from "../../utils/helper";
+import axiosInstance from "../../utils/axiosInstance";
 
 const SignUp = () => {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
 
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
-    const handleSignUp = async (e) => {
-        e.preventDefault();
+  const handleSignUp = async (e) => {
+    e.preventDefault();
 
-        if (!name) {
-            setError("Please enter your name");
-            return;
-        }
+    if (!name) {
+      setError("Please enter your name");
+      return;
+    }
 
-        if (!validateEmail(email)) {
-            setError("Please enter a valid email address.");
-            return;
-        }
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
 
-        if (!password) {
-            setError("Please enter the password");
-            return;
-        }
+    if (!password) {
+      setError("Please enter the password");
+      return;
+    }
 
-        setError('')
+    setError("");
 
-        //SignUp API call
-    };
-    
-    return (
-       <>
-        <Navbar />
-           <div className="flex items-center justify-center mt-28">
-             <div className="w-96 border rounded bg-white px-7 py-10">
-                <form onSubmit={handleSignUp}>
-                   <h4 className="text-2xl mb-7">SignUp</h4>
+    //SignUp API call
+    try {
+      const response = await axiosInstance.post("/create-account", {
+        fullName: name,
+        email: email,
+        password: password,
+      });
 
-                   <input 
-                       type="text" 
-                       placeholder="Name" 
-                       className="input-box" 
-                       value={name}
-                       onChange={(e) => setName(e.target.value)}
-                    />
+      //Handle Successful registration response
+      if (response.data && response.data.error) {
+        setError(response.data.message);
+        return;
+      }
 
-                    <input 
-                       type="email" 
-                       placeholder="Email" 
-                       className="input-box" 
-                       value={email}
-                       onChange={(e) => setEmail(e.target.value)}
-                    />
+      if (response.data && response.data.accessToken) {
+        localStorage.setItem("token", response.data.accessToken);
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      //Handle Login Error
+      if (
+        error.response &&
+        error.response.data &&
+        error.response.data.message
+      ) {
+        setError(error.response.data.message);
+      } else {
+        setError("An unexpected error occured. Please try again.");
+      }
+    }
+  };
 
-                    <PasswordInput
-                       value={password}
-                       onChange={(e) => setPassword(e.target.value)}
-                    />
+  return (
+    <>
+      <Navbar />
+      <div className="flex items-center justify-center mt-28 bg-white dark:bg-slate-900 transition-colors duration-300">
+        <div className="w-96 border rounded bg-white dark:bg-slate-800 px-7 py-10">
+          <form onSubmit={handleSignUp}>
+            <h4 className="text-2xl mb-7">SignUp</h4>
 
-                    {error && <p className="text-red-500 text-xs pb-1">{error}</p>}
+            <input
+              type="text"
+              placeholder="Name"
+              className="input-box"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
 
-                    <button type="submit" className="btn-primary">
-                        Create Account
-                    </button>
+            <input
+              type="email"
+              placeholder="Email"
+              className="input-box"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
 
-                    <p className="text-sm text-center mt-4">
-                        Already have an account?{" "}
-                        <Link to="/login" className="font-medium text-primary underline">
-                           Login
-                        </Link>
-                    </p>
+            <PasswordInput
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
 
-                </form>
-             </div>
-           </div>
-       </>
-    );
+            {error && <p className="text-red-500 text-xs pb-1">{error}</p>}
+
+            <button type="submit" className="btn-primary">
+              Create Account
+            </button>
+
+            <p className="text-sm text-center mt-4">
+              Already have an account?{" "}
+              <Link to="/login" className="font-medium text-primary underline">
+                Login
+              </Link>
+            </p>
+          </form>
+        </div>
+      </div>
+    </>
+  );
 };
-
-
 
 export default SignUp;
