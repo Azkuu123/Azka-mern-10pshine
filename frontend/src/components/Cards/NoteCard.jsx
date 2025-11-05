@@ -41,6 +41,7 @@ const NoteCard = ({
           className={`icon-btn ${
             isPinned ? "text-primary" : "text-slate-300 dark:text-slate-500"
           }`}
+          data-testid="pin-button"
           onClick={onPinNote}
         />
       </div>
@@ -66,10 +67,12 @@ const NoteCard = ({
 
         <div className="flex items-center gap-2">
           <MdCreate
+            data-testid="edit-button"
             className="icon-btn hover:text-green-600 dark:hover:text-green-400"
             onClick={onEdit}
           />
           <MdDelete
+            data-testid="delete-button"
             className="icon-btn hover:text-red-500 dark:hover:text-red-400"
             onClick={() => {
               const confirmDelete = window.confirm(

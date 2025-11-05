@@ -22,6 +22,7 @@ const SearchBar = ({ value, onChange, handleSearch, onClearSearch }) => {
             )}
 
             <FaMagnifyingGlass 
+              data-testid="search-button"
               className="text-slate-400 cursor-pointer hover:text-black" 
               onClick={handleSearch} 
             />
