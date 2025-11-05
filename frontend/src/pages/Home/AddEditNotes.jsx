@@ -152,6 +152,7 @@ const AddEditNotes = ({
       )}
 
       <button
+        data-testid="save-note-button"
         className="btn-primary font-medium mt-5 p-3 bg-primary text-white hover:bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400 transition-colors duration-300"
         onClick={handleAddNote}
       >
