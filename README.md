@@ -142,7 +142,8 @@ Encryption for notes content
 
 Azka — MERN Stack Developer
 Internship Project (10pShine)
-<img width="1920" height="904" alt="Screenshot (144)" src="https://github.com/user-attachments/assets/a6edccbc-1477-4fa8-8251-9cad4ef33068" /><img width="1920" height="906" alt="Screenshot (145)" src="https://github.com/user-attachments/assets/c609eb7d-9896-4f95-a5f3-63c9d7289b75" />
 
-## 📁 Folder Structure<img width="1920" height="909" alt="Screenshot (143)" src="https://github.com/user-attachments/assets/71fcea19-b602-4822-bf64-20428ef49d4d" />
+If you like this project, don't forget to ⭐ the repository!
+
+
 
