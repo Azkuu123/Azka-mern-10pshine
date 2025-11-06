@@ -2,9 +2,12 @@ name: SonarQube Analysis
 
 on:
   push:
-    branches: [ develop ]
+    branches:
+      - develop
+      - sonarqube-integration  
   pull_request:
-    branches: [ develop ]
+    branches:
+      - develop
 
 jobs:
   analyze:
