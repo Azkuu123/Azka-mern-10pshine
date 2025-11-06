@@ -36,3 +36,40 @@
 
 
 }
+
+/* --- React Quill Clean Layout (final scroll fix) --- */
+.editor-no-scroll .ql-toolbar {
+  border-radius: 0.5rem 0.5rem 0 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Remove inner scroll and expand editor naturally */
+.editor-no-scroll .ql-container {
+  min-height: 220px !important;
+  max-height: none !important;
+  overflow: visible !important;
+  border-radius: 0 0 0.5rem 0.5rem;
+}
+
+.editor-no-scroll .ql-editor {
+  min-height: 220px !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding-bottom: 40px; /* prevents last line clipping */
+}
+
+/* Prevent modal from cutting editor content */
+.ReactModal__Content {
+  overflow: visible !important;
+}
+
+.ql-toolbar {
+  position: relative;
+  padding-right: 50px !important; /* space for the color circle */
+}
+
+html.theme-transition * {
+  transition: none !important;
+}
+
+

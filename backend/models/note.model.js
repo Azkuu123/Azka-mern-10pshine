@@ -7,6 +7,7 @@ const noteSchema = new Schema({
     content: {type: String, required: true },
     tags: { type: [String], default: [] },
     isPinned: { type: Boolean, default: false },
+    color: { type: String, default: "#ffffff" },
     userId: { type: String, required: true },
     createdOn: { type: Date, default: new Date().getTime() },
 });
