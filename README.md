@@ -4,6 +4,8 @@ A full-stack **MERN based Notes Management Application** that allows users to se
 
 This application was developed as part of an internship, focusing on **clean code, structured APIs, logging, testing, and SonarQube-based code quality assurance**.
 
+All the code is contained inside develop branch
+
 ---
 
 ## 🚀 Features
