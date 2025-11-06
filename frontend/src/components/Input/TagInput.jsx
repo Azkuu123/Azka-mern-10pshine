@@ -36,6 +36,7 @@ const TagInput = ({ tags, setTags }) => {
             >
               # {tag}
               <button
+                data-testid="remove-tag"
                 onClick={() => {
                   handleRemoveTag(tag);
                 }}
@@ -49,6 +50,7 @@ const TagInput = ({ tags, setTags }) => {
 
       <div className="flex items-center gap-4 mt-3">
         <input
+          data-testid="tag-input"
           type="text"
           value={inputValue}
           className="text-sm bg-transparent border px-3 py-2 rounded outline-none"
@@ -58,6 +60,7 @@ const TagInput = ({ tags, setTags }) => {
         />
 
         <button
+          data-testid="remove-tag"
           className="w-8 h-8 flex items-center justify-center rounded border border-blue-700 hover:bg-blue-700"
           onClick={() => {
             addNewtag();
