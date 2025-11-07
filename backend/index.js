@@ -3,194 +3,199 @@ require("dns").setDefaultResultOrder("ipv4first");
 
 const config = require("./config.json");
 const mongoose = require("mongoose");
+const express = require("express");
+const cors = require("cors");
+const jwt = require("jsonwebtoken");
+const { authenticateToken } = require("./utilities");
+const User = require("./models/user.model");
+const Note = require("./models/note.model");
+const errorHandler = require("./middlewares/errorHandler");
+const logger = require("./logger");
+const pinoHttp = require("pino-http");
 
+const app = express();
+
+// ✅ MongoDB connection
 mongoose
   .connect(config.connectionString, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => {
-    console.log("✅ MongoDB connected successfully");
-  })
-  .catch((err) => {
-    console.error("❌ MongoDB connection error:", err);
-  });
-
-const User = require("./models/user.model");
-const Note = require("./models/note.model");
-
-const express = require("express");
-const cors = require("cors");
-const app = express();
-
-const jwt = require("jsonwebtoken");
-const { authenticateToken } = require("./utilities");
-const { error } = require("console");
+  .then(() => logger.info("✅ MongoDB connected successfully"))
+  .catch((err) => logger.error("❌ MongoDB connection error:", err));
 
 app.use(express.json());
-
 app.use(
   cors({
     origin: "*",
   })
 );
+app.use(pinoHttp({ logger }));
 
+// ✅ Root route
 app.get("/", (req, res) => {
+  logger.info("Root route accessed");
   res.json({ data: "hello" });
 });
 
-//Backend Ready!!
+// =================== AUTH ROUTES =================== //
 
-// Create Account
-app.post("/create-account", async (req, res) => {
-  const { fullName, email, password } = req.body;
+// ✅ Create Account
+app.post("/create-account", async (req, res, next) => {
+  try {
+    const { fullName, email, password } = req.body;
 
-  if (!fullName) {
-    return res
-      .status(400)
-      .json({ error: true, message: "Full Name is required" });
-  }
+    if (!fullName || !email || !password) {
+      const err = new Error("All fields are required");
+      err.statusCode = 400;
+      throw err;
+    }
 
-  if (!email) {
-    return res.status(400).json({ error: true, message: "Email is required" });
-  }
+    const isUser = await User.findOne({ email });
+    if (isUser) {
+      const err = new Error("User already exists");
+      err.statusCode = 409;
+      throw err;
+    }
 
-  if (!password) {
-    return res
-      .status(400)
-      .json({ error: true, message: "Password is required" });
-  }
+    const user = new User({ fullName, email, password });
+    await user.save();
 
-  const isUser = await User.findOne({ email });
+    logger.info(`🆕 New user registered: ${email}`);
 
-  if (isUser) {
-    return res.json({
-      error: true,
-      message: "User already exist",
+    const accessToken = jwt.sign({ user }, process.env.ACCESS_TOKEN_SECRET, {
+      expiresIn: "36000m",
     });
+
+    res.json({
+      error: false,
+      user,
+      accessToken,
+      message: "Registration Successful",
+    });
+  } catch (error) {
+    logger.error("❌ Error in /create-account:", error.message);
+    next(error);
   }
-  const user = new User({
-    fullName,
-    email,
-    password,
-  });
-
-  await user.save();
-
-  const accessToken = jwt.sign({ user }, process.env.ACCESS_TOKEN_SECRET, {
-    expiresIn: "36000m",
-  });
-
-  return res.json({
-    error: false,
-    user,
-    accessToken,
-    message: "Registration Successfull",
-  });
 });
 
-//Login
-app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+// ✅ Login
+app.post("/login", async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ message: "Email is required" });
-  }
+    if (!email || !password) {
+      const err = new Error("Email and password are required");
+      err.statusCode = 400;
+      throw err;
+    }
 
-  if (!password) {
-    return res.status(400).json({ message: "Password is required" });
-  }
+    const userInfo = await User.findOne({ email });
+    if (!userInfo) {
+      const err = new Error("User not found");
+      err.statusCode = 404;
+      throw err;
+    }
 
-  const userInfo = await User.findOne({ email: email });
+    if (userInfo.password !== password) {
+      const err = new Error("Invalid credentials");
+      err.statusCode = 401;
+      throw err;
+    }
 
-  if (!userInfo) {
-    return res.status(400).json({ message: "User not found" });
-  }
+    logger.info(`✅ User logged in: ${email}`);
 
-  if (userInfo.email == email && userInfo.password == password) {
     const user = { user: userInfo };
     const accessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
       expiresIn: "36000m",
     });
 
-    return res.json({
+    res.json({
       error: false,
       message: "Login Successful",
       email,
       accessToken,
     });
-  } else {
-    return res.status(400).json({
-      error: true,
-      message: "Invalid Credentials",
-    });
+  } catch (error) {
+    logger.error("❌ Error in /login:", error.message);
+    next(error);
   }
 });
 
-//Get User
-app.get("/get-user", authenticateToken, async (req, res) => {
-  const { user } = req.user;
-
-  const isUser = await User.findOne({ _id: user._id });
-
-  if (!isUser) {
-    return res.sendStatus(401);
-  }
-
-  return res.json({
-    user: {
-      fullName: isUser.fullName,
-      email: isUser.email,
-      _id: isUser._id,
-      createdOn: isUser.createdOn,
-      bio: isUser.bio || "",
-    },
-    message: "",
-  });
-});
-
-// Update user details
-app.put("/update-user", authenticateToken, async (req, res) => {
-  const { user } = req.user;
-  const { fullName, bio } = req.body;
-
+// ✅ Get User
+app.get("/get-user", authenticateToken, async (req, res, next) => {
   try {
+    const { user } = req.user;
+    const isUser = await User.findOne({ _id: user._id });
+
+    if (!isUser) {
+      const err = new Error("User not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    logger.info(`👤 User info fetched: ${isUser.email}`);
+
+    res.json({
+      user: {
+        fullName: isUser.fullName,
+        email: isUser.email,
+        _id: isUser._id,
+        createdOn: isUser.createdOn,
+        bio: isUser.bio || "",
+      },
+    });
+  } catch (error) {
+    logger.error("❌ Error in /get-user:", error.message);
+    next(error);
+  }
+});
+
+// ✅ Update User Details
+app.put("/update-user", authenticateToken, async (req, res, next) => {
+  try {
+    const { user } = req.user;
+    const { fullName, bio } = req.body;
+
     const updatedUser = await User.findByIdAndUpdate(
       user._id,
       { fullName, bio },
       { new: true }
     );
 
-    return res.json({
+    if (!updatedUser) {
+      const err = new Error("User not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    logger.info(`✏️ User updated: ${updatedUser.email}`);
+
+    res.json({
       error: false,
       message: "User updated successfully",
       user: updatedUser,
     });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      error: true,
-      message: "Failed to update user",
-    });
+    logger.error("❌ Error in /update-user:", error.message);
+    next(error);
   }
 });
 
-//Add Note
-app.post("/add-note", authenticateToken, async (req, res) => {
-  const { title, content, tags, color } = req.body;
-  const { user } = req.user;
+// =================== NOTES ROUTES =================== //
 
-  if (!title) {
-    return res.status(400).json({ error: true, message: "Title is required" });
-  }
-
-  if (!content) {
-    return res
-      .status(400)
-      .json({ error: true, message: "Content is required" });
-  }
-
+// ✅ Add Note
+app.post("/add-note", authenticateToken, async (req, res, next) => {
   try {
+    const { title, content, tags, color } = req.body;
+    const { user } = req.user;
+
+    if (!title || !content) {
+      const err = new Error("Title and content are required");
+      err.statusCode = 400;
+      throw err;
+    }
+
     const note = new Note({
       title,
       content,
@@ -201,148 +206,143 @@ app.post("/add-note", authenticateToken, async (req, res) => {
 
     await note.save();
 
-    return res.json({
+    logger.info(`📝 Note created by ${user._id}: "${title}"`);
+
+    res.json({
       error: false,
       note,
       message: "Note added successfully",
     });
   } catch (error) {
-    return res.status(500).json({
-      error: true,
-      message: "Internal Server Error",
-    });
+    logger.error("❌ Error in /add-note:", error.message);
+    next(error);
   }
 });
 
-//Edit Note
-app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
-  const noteId = req.params.noteId;
-  const { title, content, tags, isPinned, color } = req.body;
-  const { user } = req.user;
-
-  if (!title && !content && !tags) {
-    return res
-      .status(400)
-      .json({ error: true, message: "No changes provided" });
-  }
-
+// ✅ Edit Note
+app.put("/edit-note/:noteId", authenticateToken, async (req, res, next) => {
   try {
+    const { noteId } = req.params;
+    const { title, content, tags, isPinned, color } = req.body;
+    const { user } = req.user;
+
     const note = await Note.findOne({ _id: noteId, userId: user._id });
 
     if (!note) {
-      return res.status(400).json({ error: true, message: "Note not found" });
+      const err = new Error("Note not found");
+      err.statusCode = 404;
+      throw err;
     }
 
     if (title) note.title = title;
     if (content) note.content = content;
     if (tags) note.tags = tags;
-    if (isPinned) note.isPinned = isPinned;
-    if (color) note.color = color; // ✅ add this line
-
+    if (isPinned !== undefined) note.isPinned = isPinned;
+    if (color) note.color = color;
 
     await note.save();
 
-    return res.json({
+    logger.info(`✏️ Note updated: ${noteId} by user ${user._id}`);
+
+    res.json({
       error: false,
       note,
       message: "Note updated successfully",
     });
   } catch (error) {
-    return res.status(500).json({
-      error: true,
-      message: "Internal Server Error",
-    });
+    logger.error("❌ Error in /edit-note:", error.message);
+    next(error);
   }
 });
 
-//Get All Notes
-app.get("/get-all-notes/", authenticateToken, async (req, res) => {
-  const { user } = req.user;
-
+// ✅ Get All Notes
+app.get("/get-all-notes", authenticateToken, async (req, res, next) => {
   try {
+    const { user } = req.user;
     const notes = await Note.find({ userId: user._id }).sort({ isPinned: -1 });
 
-    return res.json({
+    logger.info(`📄 All notes fetched for user ${user._id}`);
+
+    res.json({
       error: false,
       notes,
       message: "All notes retrieved successfully",
     });
   } catch (error) {
-    return res.status(500).json({
-      error: true,
-      message: "Internal Server Error",
-    });
+    logger.error("❌ Error in /get-all-notes:", error.message);
+    next(error);
   }
 });
 
-//Delete Note
-app.delete("/delete-note/:noteId", authenticateToken, async (req, res) => {
-  const noteId = req.params.noteId;
-  const { user } = req.user;
-
+// ✅ Delete Note
+app.delete("/delete-note/:noteId", authenticateToken, async (req, res, next) => {
   try {
-    const note = await Note.findOne({ _id: noteId, userId: user._id });
+    const { noteId } = req.params;
+    const { user } = req.user;
 
+    const note = await Note.findOne({ _id: noteId, userId: user._id });
     if (!note) {
-      return res.status(404).json({ error: true, message: "Note not found" });
+      const err = new Error("Note not found");
+      err.statusCode = 404;
+      throw err;
     }
 
     await Note.deleteOne({ _id: noteId, userId: user._id });
 
-    return res.json({
+    logger.info(`🗑️ Note deleted: ${noteId} by user ${user._id}`);
+
+    res.json({
       error: false,
       message: "Note deleted successfully",
     });
   } catch (error) {
-    return res.status(500).json({
-      error: true,
-      message: "Internal Server Error",
-    });
+    logger.error("❌ Error in /delete-note:", error.message);
+    next(error);
   }
 });
 
-//Update isPinned value
-app.put("/update-note-pinned/:noteId", authenticateToken, async (req, res) => {
-  const noteId = req.params.noteId;
-  const { isPinned } = req.body;
-  const { user } = req.user;
-
+// ✅ Update isPinned
+app.put("/update-note-pinned/:noteId", authenticateToken, async (req, res, next) => {
   try {
-    const note = await Note.findOne({ _id: noteId, userId: user._id });
+    const { noteId } = req.params;
+    const { isPinned } = req.body;
+    const { user } = req.user;
 
+    const note = await Note.findOne({ _id: noteId, userId: user._id });
     if (!note) {
-      return res.status(400).json({ error: true, message: "Note not found" });
+      const err = new Error("Note not found");
+      err.statusCode = 404;
+      throw err;
     }
 
     note.isPinned = isPinned;
-
     await note.save();
 
-    return res.json({
+    logger.info(`📌 Note pin updated: ${noteId} by user ${user._id}`);
+
+    res.json({
       error: false,
       note,
-      message: "Note updated successfully",
+      message: "Note pinned state updated",
     });
   } catch (error) {
-    return res.status(500).json({
-      error: true,
-      message: "Internal Server Error",
-    });
+    logger.error("❌ Error in /update-note-pinned:", error.message);
+    next(error);
   }
 });
 
-// Search Notes
-app.get("/search-notes/", authenticateToken, async (req, res) => {
-  const { user } = req.user;
-  const { query } = req.query;
-
-  if (!query) {
-    return res
-      .status(400)
-      .json({ error: true, message: "Search query is required " });
-  }
-
+// ✅ Search Notes
+app.get("/search-notes", authenticateToken, async (req, res, next) => {
   try {
+    const { user } = req.user;
+    const { query } = req.query;
+
+    if (!query) {
+      const err = new Error("Search query is required");
+      err.statusCode = 400;
+      throw err;
+    }
+
     const matchingNotes = await Note.find({
       userId: user._id,
       $or: [
@@ -352,20 +352,23 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
       ],
     });
 
-    return res.json({
+    logger.info(`🔍 Notes searched by ${user._id}: query="${query}"`);
+
+    res.json({
       error: false,
       notes: matchingNotes,
-      message: "Notes matching the search query retrieved successfully",
+      message: "Search successful",
     });
   } catch (error) {
-    return res.status(500).json({
-      error: true,
-      message: "Internal Server Error",
-    });
+    logger.error("❌ Error in /search-notes:", error.message);
+    next(error);
   }
 });
 
+// ✅ Global Error Handler
+app.use(errorHandler);
 
-app.listen(8000);
+// ✅ Server Start
+app.listen(8000, () => logger.info("🚀 Server running on port 8000"));
 
 module.exports = app;
